@@ -1,0 +1,56 @@
+# 'Allow scripts to access the OAuth token' was selected in pipeline.  Add the following YAML to any steps requiring access:
+#       env:
+#           MY_ACCESS_TOKEN: $(System.AccessToken)
+# Variable 'SolutionName' was defined in the Variables tab
+# Variable 'version.MajorMinor' was defined in the Variables tab
+
+jobs:
+- job: Job_1
+  displayName: Export and Unpack Power Platform Solution
+  pool:
+    vmImage: vs2017-win2016
+  steps:
+  - checkout: self
+    persistCredentials: True
+  - task: PowerPlatformToolInstaller@0
+    displayName: 'Power Platform Tool Installer '
+  - task: PowerPlatformSetSolutionVersion@0
+    displayName: 'Power Platform Set Solution Version '
+    inputs:
+      PowerPlatformEnvironment: f584989d-0c0e-4cde-bee8-3bd585f1e107
+      SolutionName: $(SolutionName)
+      SolutionVersionNumber: $(version.MajorMinor).$(Build.BuildNumber).0
+  - task: PowerPlatformExportSolution@0
+    displayName: 'Power Platform Export Solution '
+    inputs:
+      PowerPlatformEnvironment: f584989d-0c0e-4cde-bee8-3bd585f1e107
+      PowerPlatformSPN: 42ee6cbc-4f9e-4acf-8f23-5a173834f024
+      SolutionName: $(SolutionName)
+      SolutionOutputFile: $(Build.ArtifactStagingDirectory)\$(SolutionName).zip
+      ExportAutoNumberingSettings: true
+      ExportGeneralSettings: true
+  - task: PowerPlatformUnpackSolution@0
+    displayName: 'Power Platform Unpack Solution '
+    inputs:
+      SolutionInputFile: $(Build.ArtifactStagingDirectory)\$(SolutionName).zip
+      SolutionTargetFolder: $(Build.SourcesDirectory)\$(SolutionName)
+  - task: CmdLine@2
+    displayName: Command Line Script
+    inputs:
+      script: >-
+        echo commit all changes
+
+        git config user.email "admin@localhost.com"
+
+        git config user.name "Automatic Build"
+
+        git checkout main
+
+        git add --all
+
+        git commit -m "solution init"
+
+        echo push code to new repo
+
+        git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin main
+...
